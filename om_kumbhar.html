@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fart Bird Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+            font-family: 'Comic Sans MS', cursive, Arial, sans-serif;
+            color: #333;
+            overflow: hidden;
+        }
+        #menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 50%, #87CEEB 100%);
+            z-index: 100;
+            transition: opacity 0.5s ease-out;
+        }
+        #menu h1 {
+            font-size: 48px;
+            color: #FF69B4;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        #playButton {
+            padding: 15px 30px;
+            font-size: 24px;
+            background: linear-gradient(to right, #FF69B4, #FF1493);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            color: white;
+            font-family: 'Comic Sans MS', cursive;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        #playButton:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+        canvas {
+            display: block;
+            border: 3px solid #32CD32;
+            border-radius: 10px;
+            background-color: #87CEEB;
+            max-width: 100%;
+            height: auto;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.5s ease-in;
+        }
+        #footer {
+            margin-top: 10px;
+            text-align: center;
+        }
+        #restart {
+            padding: 12px 24px;
+            font-size: 18px;
+            background: linear-gradient(to right, #FF69B4, #FF1493);
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            display: none;
+            color: white;
+            font-family: 'Comic Sans MS', cursive;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        #restart:hover {
+            background: linear-gradient(to right, #FF1493, #FF69B4);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div id="menu">
+        <h1>om ready to fart ?  🚀💨</h1>
+        <button id="playButton">Play Now!</button>
+    </div>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div id="footer">
+        <button id="restart">Restart Game 🚀</button>
+    </div>
+
+    <script>
+        const CANVAS_WIDTH = 400;
+        const CANVAS_HEIGHT = 600;
+        const PLAYER_SIZE = 60;
+        const GRAVITY = 0.5;
+        const JUMP_STRENGTH = -8;
+        const PIPE_WIDTH = 50;
+        const PIPE_GAP = 150;
+        const PIPE_SPEED = 2;
+        const PIPE_SPACING = 200;
+        const GROUND_HEIGHT = 30;
+        const CEILING_HEIGHT = 0;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let gameState = 'menu';
+        let playerX = 50;
+        let playerY = CANVAS_HEIGHT / 2;
+        let playerVY = 0;
+        let playerImg = new Image();
+        playerImg.src = 'om.png';
+        let pipes = [];
+        let puffs = [];
+        let score = 0;
+
+        const fartAudioTemplate = new Audio();
+        fartAudioTemplate.src = 'https://www.soundjay.com/human/sounds/fart-01.mp3';
+        fartAudioTemplate.volume = 0.5;
+
+        document.getElementById('playButton').addEventListener('click', () => {
+            document.getElementById('menu').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('menu').style.display = 'none';
+                canvas.style.opacity = '1';
+                gameState = 'start';
+            }, 500);
+        });
+
+        document.getElementById('restart').addEventListener('click', restartGame);
+
+        function handleJump(e) {
+            e.preventDefault();
+            if (gameState === 'start') {
+                gameState = 'playing';
+            } else if (gameState === 'playing') {
+                playerVY = JUMP_STRENGTH;
+                for (let i = 0; i < 5; i++) {
+                    puffs.push({
+                        x: playerX + PLAYER_SIZE / 2 + (Math.random() - 0.5) * PLAYER_SIZE,
+                        y: playerY + PLAYER_SIZE + (Math.random() - 0.5) * 5,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 1 - 0.5,
+                        life: 1.0,
+                        size: 3 + Math.random() * 8
+                    });
+                }
+                const audio = fartAudioTemplate.cloneNode(true);
+                audio.play().catch(() => {});
+            }
+        }
+        canvas.addEventListener('click', handleJump);
+        canvas.addEventListener('touchstart', handleJump);
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                handleJump(e);
+            }
+        });
+
+        function restartGame() {
+            playerY = CANVAS_HEIGHT / 2;
+            playerVY = 0;
+            pipes = [];
+            puffs = [];
+            score = 0;
+            gameState = 'start';
+            document.getElementById('restart').style.display = 'none';
+        }
+
+        function addPipe() {
+            const topHeight = Math.random() * (CANVAS_HEIGHT - PIPE_GAP - GROUND_HEIGHT - 100) + 50;
+            const bottomY = topHeight + PIPE_GAP;
+            pipes.push({
+                x: CANVAS_WIDTH,
+                topHeight: topHeight,
+                bottomY: bottomY,
+                passed: false
+            });
+        }
+
+        function update() {
+            if (gameState !== 'playing') return;
+
+            playerVY += GRAVITY;
+            playerY += playerVY;
+
+            pipes.forEach(pipe => {
+                pipe.x -= PIPE_SPEED;
+                if (pipe.x + PIPE_WIDTH < playerX && !pipe.passed) {
+                    score++;
+                    pipe.passed = true;
+                }
+            });
+            pipes = pipes.filter(pipe => pipe.x > -PIPE_WIDTH);
+
+            if (pipes.length === 0 || pipes[pipes.length - 1].x < CANVAS_WIDTH - PIPE_SPACING) {
+                addPipe();
+            }
+
+            puffs.forEach(puff => {
+                puff.x += puff.vx;
+                puff.y += puff.vy;
+                puff.vy += 0.1;
+                puff.life -= 0.02;
+                puff.size *= 1.01;
+            });
+            puffs = puffs.filter(puff => puff.life > 0);
+
+            checkCollisions();
+        }
+
+        function checkCollisions() {
+            if (playerY < CEILING_HEIGHT) {
+                gameOver();
+                return;
+            }
+            if (playerY + PLAYER_SIZE > CANVAS_HEIGHT - GROUND_HEIGHT) {
+                playerY = CANVAS_HEIGHT - GROUND_HEIGHT - PLAYER_SIZE;
+                gameOver();
+                return;
+            }
+            for (let pipe of pipes) {
+                if (playerX + PLAYER_SIZE > pipe.x && playerX < pipe.x + PIPE_WIDTH) {
+                    if (playerY < pipe.topHeight || playerY + PLAYER_SIZE > pipe.bottomY) {
+                        gameOver();
+                        return;
+                    }
+                }
+            }
+        }
+
+        function gameOver() {
+            gameState = 'over';
+            document.getElementById('restart').style.display = 'block';
+        }
+
+        function drawClouds() {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath();
+            ctx.arc(100, 80, 20, 0, Math.PI * 2);
+            ctx.arc(130, 80, 25, 0, Math.PI * 2);
+            ctx.arc(160, 80, 20, 0, Math.PI * 2);
+            ctx.arc(120, 60, 20, 0, Math.PI * 2);
+            ctx.arc(140, 60, 20, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(300, 120, 15, 0, Math.PI * 2);
+            ctx.arc(320, 120, 20, 0, Math.PI * 2);
+            ctx.arc(340, 120, 15, 0, Math.PI * 2);
+            ctx.arc(310, 100, 15, 0, Math.PI * 2);
+            ctx.arc(330, 100, 15, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(1, '#98FB98');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_HEIGHT);
+
+            drawClouds();
+
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(0, CANVAS_HEIGHT - GROUND_HEIGHT, CANVAS_WIDTH, GROUND_HEIGHT);
+            ctx.strokeStyle = '#006400';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < CANVAS_WIDTH; i += 20) {
+                ctx.beginPath();
+                ctx.moveTo(i, CANVAS_HEIGHT - GROUND_HEIGHT);
+                ctx.lineTo(i + 10, CANVAS_HEIGHT - GROUND_HEIGHT - 10);
+                ctx.stroke();
+            }
+
+            if (gameState === 'playing' || gameState === 'over') {
+                pipes.forEach(pipe => {
+                    ctx.fillStyle = '#008000';
+                    ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+                    ctx.fillStyle = '#006400';
+                    ctx.fillRect(pipe.x - 5, pipe.topHeight - 20, PIPE_WIDTH + 10, 20);
+                    ctx.fillStyle = '#008000';
+                    ctx.fillRect(pipe.x, pipe.bottomY, PIPE_WIDTH, CANVAS_HEIGHT - pipe.bottomY - GROUND_HEIGHT);
+                    ctx.fillStyle = '#006400';
+                    ctx.fillRect(pipe.x - 5, pipe.bottomY, PIPE_WIDTH + 10, 20);
+                    ctx.strokeStyle = '#004d00';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(pipe.x - 5, pipe.topHeight - 20, PIPE_WIDTH + 10, 20);
+                    ctx.strokeRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+                    ctx.strokeRect(pipe.x - 5, pipe.bottomY, PIPE_WIDTH + 10, 20);
+                    ctx.strokeRect(pipe.x, pipe.bottomY, PIPE_WIDTH, CANVAS_HEIGHT - pipe.bottomY - GROUND_HEIGHT);
+                });
+
+                if (playerImg.src && playerImg.complete && playerImg.naturalWidth > 0) {
+                    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                    ctx.shadowBlur = 5;
+                    ctx.shadowOffsetX = 2;
+                    ctx.shadowOffsetY = 2;
+                    ctx.drawImage(playerImg, playerX, playerY, PLAYER_SIZE, PLAYER_SIZE);
+                    ctx.shadowColor = 'transparent';
+                } else {
+                    ctx.fillStyle = '#FFD700';
+                    ctx.beginPath();
+                    ctx.arc(playerX + PLAYER_SIZE / 2, playerY + PLAYER_SIZE / 2, PLAYER_SIZE / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#FFA500';
+                    ctx.beginPath();
+                    ctx.moveTo(playerX + PLAYER_SIZE, playerY + PLAYER_SIZE / 2);
+                    ctx.lineTo(playerX + PLAYER_SIZE + 15, playerY + PLAYER_SIZE / 2 - 8);
+                    ctx.lineTo(playerX + PLAYER_SIZE + 15, playerY + PLAYER_SIZE / 2 + 8);
+                    ctx.fill();
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath();
+                    ctx.arc(playerX + 15, playerY + 15, 5, 0, Math.PI * 2);
+                    ctx.arc(playerX + 35, playerY + 15, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#FFF';
+                    ctx.beginPath();
+                    ctx.arc(playerX + 14, playerY + 14, 3, 0, Math.PI * 2);
+                    ctx.arc(playerX + 34, playerY + 14, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                puffs.forEach(puff => {
+                    ctx.save();
+                    ctx.globalAlpha = puff.life * 0.8;
+                    const gradient = ctx.createRadialGradient(puff.x, puff.y, 0, puff.x, puff.y, puff.size);
+                    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+                    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(puff.x, puff.y, puff.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+                    ctx.shadowBlur = 5;
+                    ctx.fill();
+                    ctx.restore();
+                });
+
+                ctx.fillStyle = '#FFF';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 3;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+                ctx.font = 'bold 28px "Comic Sans MS", cursive';
+                ctx.fillText(`Score: ${score}`, 10, 35);
+                ctx.shadowColor = 'transparent';
+            }
+
+            if (gameState === 'start') {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 5;
+                ctx.font = 'bold 24px "Comic Sans MS", cursive';
+                ctx.textAlign = 'center';
+                ctx.fillText('Click/Tap or Space to Fart and Fly!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+                ctx.font = 'italic 16px Arial';
+                ctx.fillText('Avoid the pipes and don\'t crash!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
+                ctx.textAlign = 'left';
+                ctx.shadowColor = 'transparent';
+            } else if (gameState === 'over') {
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+                ctx.shadowColor = 'rgba(0,0,0,0.7)';
+                ctx.shadowBlur = 10;
+                ctx.font = 'bold 36px "Comic Sans MS", cursive';
+                ctx.textAlign = 'center';
+                ctx.fillText('Game Over! 💥', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
+                ctx.font = 'bold 24px Arial';
+                ctx.fillStyle = '#FFF';
+                ctx.fillText(`Final Score: ${score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+                ctx.textAlign = 'left';
+                ctx.shadowColor = 'transparent';
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+
+        window.addEventListener('resize', () => {
+            canvas.style.maxWidth = '100%';
+        });
+    </script>
+</body>
+</html>
